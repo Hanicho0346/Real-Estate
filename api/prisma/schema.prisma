@@ -30,8 +30,6 @@ model Post {
   bedroom    Int
   bathroom   Int
   city       String
-  latitude   String
-  longitude  String
   createdAt  DateTime    @default(now())
   type       Type
   property   Property

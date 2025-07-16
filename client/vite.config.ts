@@ -6,5 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), 
     tailwindcss(),],
+     optimizeDeps: {
+    include: ['@tiptap/react', '@tiptap/starter-kit']
+  }
    
 })

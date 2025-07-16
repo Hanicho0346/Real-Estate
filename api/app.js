@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require('path');
 const cookieParser = require("cookie-parser");
 const authrouter = require("./routes/auth.js");
 const testrouter = require("./routes/test.js");
@@ -16,6 +17,8 @@ app.use(
     exposedHeaders: ["set-cookie"],
   })
 );
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use("/api/auth", authrouter);
 app.use("/api/test", testrouter);
