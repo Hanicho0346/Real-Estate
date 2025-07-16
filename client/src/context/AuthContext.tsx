@@ -82,25 +82,17 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
 
 
   const updateUser = (data: AuthResponseSuccess | User | null) => {
-    if (data === null) {
-    
-      setCurrentUser(null);
-      setAuthToken(null);
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-    } else if ("token" in data && "user" in data) {
-      
-      const { user, token } = data;
-      setCurrentUser(user);
-      setAuthToken(token);
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("token", token);
-    } else {
-
-      setCurrentUser(data);
-      localStorage.setItem("user", JSON.stringify(data));
-    }
-  };
+  if (data === null) {
+    setCurrentUser(null);
+    localStorage.removeItem("user");
+  } else if ("token" in data && "user" in data) {
+    setCurrentUser(data.user);
+    localStorage.setItem("user", JSON.stringify(data.user));
+  } else {
+    setCurrentUser(data);
+    localStorage.setItem("user", JSON.stringify(data));
+  }
+};
 
   const Logout = () => {
     setCurrentUser(null);

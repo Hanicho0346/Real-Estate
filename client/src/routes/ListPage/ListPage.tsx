@@ -1,16 +1,17 @@
 import { useState, useMemo } from "react";
-import { listData } from "../../lib/dummydata";
 import Filter from "../../components/Filter";
 import Card from "../../components/Card.js";
 import CustomMap from "../../components/CustomMap";
 import { Search, MapPin, List } from "lucide-react";
-
+import { useLoaderData } from "react-router-dom";
 const DEFAULT_POSITION = [51.505, -0.09];
 
 const ListPage = () => {
   const [selectedItem, setSelectedItem] = useState(null);
-  const [viewMode, setViewMode] = useState("both"); 
+  const [viewMode, setViewMode] = useState("both");
+  const { post } = useLoaderData();
 
+  console.log("post", post);
   const mapCenter = useMemo(
     () =>
       selectedItem
@@ -39,12 +40,15 @@ const ListPage = () => {
                 <Search className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-800">Property Search</h1>
-                <p className="text-sm text-gray-600">{listData.length} properties available</p>
+                <h1 className="text-xl font-bold text-gray-800">
+                  Property Search
+                </h1>
+                <p className="text-sm text-gray-600">
+                  {post.length} properties available
+                </p>
               </div>
             </div>
-            
-          
+
             <div className="hidden md:flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
               <button
                 onClick={() => setViewMode("list")}
@@ -83,10 +87,12 @@ const ListPage = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
-  
           {(viewMode === "list" || viewMode === "both") && (
-            <div className={`${viewMode === "both" ? "lg:w-1/2" : "w-full"} space-y-6`}>
-         
+            <div
+              className={`${
+                viewMode === "both" ? "lg:w-1/2" : "w-full"
+              } space-y-6`}
+            >
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -106,8 +112,8 @@ const ListPage = () => {
                     </div>
                   </div>
                 )}
-                
-                {listData.map((item) => (
+
+                {post.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => handleItemClick(item)}
@@ -125,7 +131,11 @@ const ListPage = () => {
           )}
 
           {(viewMode === "map" || viewMode === "both") && (
-            <div className={`${viewMode === "both" ? "lg:w-1/2" : "w-full"} relative`}>
+            <div
+              className={`${
+                viewMode === "both" ? "lg:w-1/2" : "w-full"
+              } relative`}
+            >
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden h-full">
                 <div className="p-4 border-b border-gray-100">
                   <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -142,7 +152,7 @@ const ListPage = () => {
                   <CustomMap
                     center={mapCenter}
                     zoom={zoomLevel}
-                    items={listData.map((item) => ({
+                    items={post.map((item) => ({
                       ...item,
                       type: item.category,
                     }))}
@@ -156,7 +166,6 @@ const ListPage = () => {
         </div>
       </div>
 
-   
       <div className="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-20">
         <div className="bg-white rounded-full shadow-lg border border-gray-200 p-1 flex gap-1">
           <button

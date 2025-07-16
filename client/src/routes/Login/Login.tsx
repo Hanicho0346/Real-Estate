@@ -8,7 +8,10 @@ import apiRequest from "../../lib/apiRequest";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setErrors] = useState("");
+  const [errors, setErrors] = useState({
+    username: "",
+    password: "",
+  });
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: "",
@@ -27,7 +30,10 @@ const Login = () => {
   };
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setErrors("");
+     setErrors({
+      username: "",
+      password: "",
+    });
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -46,9 +52,10 @@ const Login = () => {
       navigate("/profile");
     } catch (err: any) {
       console.log(err);
-      setErrors(
-        err.response?.data?.message || "An error occurred during login"
-      );
+      setErrors({
+        username: "",
+        password: err.response?.data?.message || "An error occurred during login",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -125,13 +132,12 @@ const Login = () => {
                     placeholder="username"
                     className="w-full pl-10 pr-3 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all duration-200 bg-gray-50/50 focus:bg-white text-sm"
                   />
-                  {error && (
-                    <p className="text-red-500 text-xs mt-1">{error}</p>
+                  {errors.username && (
+                    <p className="text-red-500 text-xs mt-1">{errors.username}</p>
                   )}
                 </div>
               </div>
 
-              {/* Password Field */}
               <div className="group">
                 <label
                   htmlFor="password"
@@ -162,6 +168,9 @@ const Login = () => {
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
+                    {errors.password && (
+                    <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                  )}
                 </div>
               </div>
             </div>
