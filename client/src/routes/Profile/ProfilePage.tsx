@@ -1,360 +1,384 @@
-import {
-  Plus,
-  Edit3,
-  Mail,
-  User,
-  MessageCircle,
-  Send,
-  Settings,
-} from "lucide-react";
-import Card from "./Card";
-import { listData } from "../../lib/dummydata";
+import { Plus, Edit3, Mail, User, Settings } from "lucide-react";
 import { LuLogOut } from "react-icons/lu";
-import { Link, useNavigate } from "react-router-dom";
-import { useContext, useEffect, useState } from "react";
-import { AuthContext } from "../../context/AuthContext.js";
+import { Link, useLoaderData, useNavigate } from "react-router-dom";
+import { useContext, useEffect, useState, useMemo, useCallback } from "react";
+import Card from "./Card";
 import { ProfilePictureUploader } from "../../components/Uploader";
-import apiRequest from "../../lib/apiRequest.js";
-import { jwtDecode } from "jwt-decode";
+import apiRequest from "../../lib/apiRequest";
+import SendMessage from "./SendMessage";
+import type { Chat, Message, ProfileLoaderData } from "../../types/type";
+import { AuthContext } from "../../context/AuthContext";
+import { SocketContext } from "../../context/SocketContext";
 
-interface FormData {
-  username: string;
-  email: string;
-}
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const [err, seterrors] = useState("");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"myListings" | "saved">(
+    "myListings"
+  );
   const { currentUser, updateUser, Logout } = useContext(AuthContext);
-  const [formData, setFormData] = useState<FormData>({
-    username: currentUser?.username || "",
-    email: currentUser?.email || "",
-  });
+  const [chat, setChat] = useState(null);
+  const { socket } = useContext(SocketContext);
+  const [activeChat, setActiveChat] = useState<Chat | null>(null);
+  const { user, userPosts, savedPosts, chats } =
+    useLoaderData() as ProfileLoaderData;
 
-  const contextId = currentUser?.id;
-  console.log("userid (from context):", contextId);
+  const formData = useMemo(
+    () => ({
+      username: currentUser?.username || "",
+      email: currentUser?.email || "",
+      avatar: currentUser?.avatar || "",
+    }),
+    [currentUser]
+  );
 
-  const token = localStorage.getItem("token");
-
-  let decodedUserId: string | undefined;
-  if (token) {
-    try {
-      const decoded: any = jwtDecode(token);
-      decodedUserId = decoded.id;
-    } catch (e) {
-      console.error("Error decoding token:", e);
-    }
-  }
-  console.log("token id", decodedUserId);
-  useEffect(() => {
-    if (decodedUserId && contextId && decodedUserId !== contextId) {
-      console.error("ID mismatch detected - logging out for security");
-      Logout();
-      navigate("/login");
-      return;
-    }
-
-    const fetchUserData = async () => {
-      if (!decodedUserId) return;
-      setIsLoading(true);
-      try {
-        const res = await apiRequest.get(`/user/${contextId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        updateUser(res.data);
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, [decodedUserId]);
+  const currentPosts = useMemo(
+    () => (activeTab === "myListings" ? userPosts : savedPosts),
+    [activeTab, userPosts, savedPosts]
+  );
 
   const handleLogout = async () => {
-    seterrors("");
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       await apiRequest.post("/auth/logout");
       Logout();
       navigate("/");
-    } catch (error) {
-      console.log(error);
-      seterrors("Failed to logout");
+    } catch (err) {
+      console.error("Logout failed:", err);
+      setError("Failed to logout. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleUpdateProfile = async () => {
-    navigate("/profile/update");
-  };
+  const handleSendMessage = useCallback(
+    async (message: Message, chatId: string) => {
+      try {
+        if (!socket || !currentUser || !activeChat) return;
+
+        // Find the other user in the chat
+        const otherUser = activeChat.users.find(
+          (user) => user.id !== currentUser.id
+        );
+        if (!otherUser) return;
+
+        // Optimistically update UI
+        const tempMessage = {
+          ...message,
+          id: Date.now().toString(), // temporary ID
+          chatId,
+          senderId: currentUser.id,
+          createdAt: new Date().toISOString(),
+        };
+
+        setActiveChat((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: [...prev.messages, tempMessage],
+              }
+            : null
+        );
+
+        // Send to server
+        const res = await apiRequest.post("/message/" + chatId, {
+          text: message.text,
+        });
+
+        // Replace temp message with server response
+        setActiveChat((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: prev.messages.map((m) =>
+                  m.id === tempMessage.id ? res.data : m
+                ),
+              }
+            : null
+        );
+
+        // Emit socket event
+        socket.emit("sendMessage", {
+          receiverId: otherUser.id,
+          text: message.text,
+          chatId: activeChat.id,
+          messageId: res.data.id, // include the final message ID
+        });
+
+        return true;
+      } catch (error) {
+        console.error("Failed to send message:", error);
+        setError("Failed to send message. Please try again.");
+
+        // Remove the optimistic update if failed
+        setActiveChat((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: prev.messages.filter((m) => m.id !== tempMessage.id),
+              }
+            : null
+        );
+
+        return false;
+      }
+    },
+    [socket, currentUser, activeChat]
+  );
+
+  useEffect(() => {
+    if (!socket || !currentUser) return;
+
+    const handleNewMessage = (newMessage: Message) => {
+      // Ignore our own messages (they're handled by sendMessage)
+      if (newMessage.senderId === currentUser.id) return;
+
+      // Update the active chat if it's the current one
+      if (activeChat && activeChat.id === newMessage.chatId) {
+        setActiveChat((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: [...prev.messages, newMessage],
+              }
+            : null
+        );
+      }
+
+      // Otherwise, you might want to update the chats list
+      // to show a notification badge or similar
+    };
+
+    socket.on("getMessage", handleNewMessage);
+
+    return () => {
+      socket.off("getMessage", handleNewMessage);
+    };
+  }, [socket, currentUser, activeChat]);
 
   if (!currentUser) {
-    return <div>Loading user data...</div>;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    );
   }
-  // const handleProfilePictureUpload = async (e) => {
-  //   const file = e.target.files[0];
-  //   const formData = new FormData();
-  //   formData.append("avatar", file);
 
-  //   try {
-  //     const res = await axios.post(
-  //       `http://localhost:8800/api/users/${currentUser?.id}/avatar`,
-  //       formData,
-  //       {
-  //         headers: {
-  //           "Content-Type": "multipart/form-data",
-  //           Authorization: `Bearer `,
-  //         },
-  //       }
-  //     );
-  //     updateUser(res.data);
-  //   } catch (error) {
-  //     console.error("Error uploading avatar:", error);
-  //   }
-  // };
+  const memberSinceDate = useMemo(
+    () =>
+      new Date(user?.createdAt).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+    [user?.createdAt]
+  );
+
   return (
-    currentUser && (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-4 md:p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              Profile Dashboard
-            </h1>
-            <p className="text-gray-600">
-              Manage your information and listings
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            Profile Dashboard
+          </h1>
+          <p className="text-gray-600">Manage your information and listings</p>
+        </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
-              <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-xl">
-                      <User className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-800">
-                      User Information
-                    </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            {/* User Information Section */}
+            <section className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-xl">
+                    <User className="w-6 h-6 text-blue-600" />
                   </div>
-                  <div className="flex flex-col gap-4">
-                    <button
-                      onClick={handleUpdateProfile}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                      Update Profile
-                    </button>
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center cursor-pointer justify-center gap-1 p-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl"
-                    >
-                      <LuLogOut className="w-4 h-4" />
-                      Logout
-                    </button>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    User Information
+                  </h2>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <button
+                    onClick={() => navigate("/profile/update")}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    aria-label="Update profile"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Update Profile
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    aria-label={isLoading ? "Logging out" : "Logout"}
+                  >
+                    <LuLogOut className="w-4 h-4" />
+                    {isLoading ? "Logging out..." : "Logout"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <div className="flex items-center gap-6">
+                  <ProfilePictureUploader />
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">
+                      {formData.username}
+                    </h3>
+                    <p className="text-gray-600">
+                      Member since {memberSinceDate}
+                    </p>
                   </div>
                 </div>
 
-                <div className="space-y-8">
-                  <div className="flex items-center gap-6">
-                    <div className="relative">
-                      <ProfilePictureUploader />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-800">
-                        {formData.username}
-                      </h3>
-                      <p className="text-gray-600">Premium Member</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-sm text-green-600 font-medium">
-                          Online
-                        </span>
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                      Username
+                    </label>
+                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <User className="w-5 h-5 text-gray-400" />
+                      <span className="text-gray-800 font-medium">
+                        {user.username}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                        Username
-                      </label>
-                      <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <User className="w-5 h-5 text-gray-400" />
-                        <span className="text-gray-800 font-medium">
-                          {formData.username}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                        Email
-                      </label>
-                      <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <Mail className="w-5 h-5 text-gray-400" />
-                        <span className="text-gray-800 font-medium">
-                          {formData.email}
-                        </span>
-                      </div>
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                      Email
+                    </label>
+                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <Mail className="w-5 h-5 text-gray-400" />
+                      <span className="text-gray-800 font-medium">
+                        {user.email}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
+            </section>
 
-              <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-xl">
-                      <Settings className="w-6 h-6 text-green-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-bold text-gray-800">
-                        My Listings
-                      </h3>
-                      <p className="text-gray-600">
-                        {listData.length} active properties
-                      </p>
-                    </div>
+            {/* Listings Section */}
+            <section className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-xl">
+                    <Settings className="w-6 h-6 text-green-600" />
                   </div>
-                  <div className="flex flex-row justify-center gap-6">
-                    <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl">
-                      <Plus className="w-5 h-5" />
-                      New Listing
-                    </button>
-                    <div>
-                      <Link to={"/profile/addpost"}>
-                        <button className="flex items-center cursor-pointer gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl">
-                          <Plus className="w-5 h-5" /> Add Post
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-800">
+                      My Listings
+                    </h3>
+                    <p className="text-gray-600">Manage your properties</p>
+                  </div>
+                </div>
+
+                <Link to="/profile/addpost">
+                  <button
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    aria-label="Add new post"
+                  >
+                    <Plus className="w-5 h-5" /> Add Post
+                  </button>
+                </Link>
+              </div>
+
+              <div>
+                <nav className="flex border-b border-gray-200 mb-6">
+                  <button
+                    className={`py-2 px-4 font-medium ${
+                      activeTab === "myListings"
+                        ? "text-green-600 border-b-2 border-green-600"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                    onClick={() => setActiveTab("myListings")}
+                    aria-current={
+                      activeTab === "myListings" ? "page" : undefined
+                    }
+                  >
+                    My Listings ({userPosts?.length || 0})
+                  </button>
+                  <button
+                    className={`py-2 px-4 font-medium ${
+                      activeTab === "saved"
+                        ? "text-green-600 border-b-2 border-green-600"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                    onClick={() => setActiveTab("saved")}
+                    aria-current={activeTab === "saved" ? "page" : undefined}
+                  >
+                    Saved Listings ({savedPosts?.length || 0})
+                  </button>
+                </nav>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  {currentPosts?.length > 0 ? (
+                    currentPosts.map((item) => (
+                      <Card
+                        key={item.id}
+                        item={item}
+                        className="transform hover:scale-[1.02] transition-all duration-300"
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-2 text-center py-10">
+                      <p className="text-gray-500 mb-4">
+                        {activeTab === "myListings"
+                          ? "You haven't created any listings yet."
+                          : "You haven't saved any listings yet."}
+                      </p>
+                      <Link
+                        to={
+                          activeTab === "myListings" ? "/profile/addpost" : "/"
+                        }
+                        className="inline-block"
+                      >
+                        <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl">
+                          {activeTab === "myListings"
+                            ? "Create Your First Listing"
+                            : "Browse Listings"}
                         </button>
                       </Link>
                     </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  {listData.map((item) => (
-                    <div
-                      key={item.id}
-                      className="transform hover:scale-[1.02] transition-all duration-300"
-                    >
-                      <Card item={item} />
-                    </div>
-                  ))}
+                  )}
                 </div>
               </div>
-            </div>
+            </section>
+          </div>
 
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-3xl shadow-xl border border-gray-100 h-[800px] flex flex-col overflow-hidden">
-                <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-green-50">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-blue-100 rounded-xl">
-                      <MessageCircle className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-800">
-                      Messages
-                    </h2>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    3 unread conversations
-                  </p>
-                </div>
-
-                <div className="flex-1 p-6 overflow-y-auto space-y-4">
-                  <div className="flex gap-3 items-start">
-                    <div className="flex-shrink-0">
-                      <div className="rounded-full w-10 h-10 overflow-hidden border-2 border-blue-100 shadow-lg">
-                        <img
-                          src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400"
-                          alt="User avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-1 max-w-xs">
-                      <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-tl-md">
-                        <p className="text-gray-800 text-sm">
-                          Hey, how are you doing? I'm interested in your
-                          apartment listing!
-                        </p>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2 ml-2">
-                        10:30 AM
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 items-start justify-end">
-                    <div className="flex-1 max-w-xs">
-                      <div className="bg-gradient-to-r from-green-600 to-green-700 px-4 py-3 rounded-2xl rounded-tr-md ml-auto">
-                        <p className="text-white text-sm">
-                          I'm good, thanks for asking! Yes, the apartment is
-                          still available. Would you like to schedule a viewing?
-                        </p>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2 mr-2 text-right">
-                        10:32 AM
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <div className="rounded-full w-10 h-10 overflow-hidden border-2 border-green-100 shadow-lg">
-                        <img
-                          src="https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400"
-                          alt="User avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 items-start">
-                    <div className="flex-shrink-0">
-                      <div className="rounded-full w-10 h-10 overflow-hidden border-2 border-blue-100 shadow-lg">
-                        <img
-                          src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400"
-                          alt="User avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-1 max-w-xs">
-                      <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-tl-md">
-                        <p className="text-gray-800 text-sm">
-                          That would be perfect! When are you available?
-                        </p>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2 ml-2">
-                        10:35 AM
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 border-t border-gray-100 bg-gray-50">
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      placeholder="Type your message..."
-                      className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white text-sm"
-                    />
-                    <button className="px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl">
-                      <Send className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* Messages Section */}
+          <div className="space-y-8">
+            <SendMessage
+              chats={chats}
+              activeChat={activeChat}
+              onSendMessage={handleSendMessage}
+              onChatSelect={setActiveChat}
+              onCloseChat={() => setActiveChat(null)}
+              currentUserId={currentUser.id}
+            />
           </div>
         </div>
+
+        {/* Error Notification */}
+        {error && (
+          <div className="fixed bottom-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-lg max-w-md">
+            <div className="flex justify-between items-start">
+              <p>{error}</p>
+              <button
+                onClick={() => setError("")}
+                className="ml-4 text-red-600 hover:text-red-800 focus:outline-none"
+                aria-label="Dismiss error message"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-    )
+    </div>
   );
 };
 

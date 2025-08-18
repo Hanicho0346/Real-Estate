@@ -12,16 +12,23 @@ import ProfilePage from "./routes/Profile/ProfilePage";
 import SignUp from "./routes/signup/SignUp";
 import UpdateProfile from "./routes/UpdateProfile/UpdateProfile";
 import AddPost from "./routes/post/AddPost";
-import { singleloader, listpageloader } from "./lib/loader";
+import { singleloader, listPageLoader, profilepageLoader } from "./lib/loader";
 import ErrorPage from "./routes/ErrorPage";
-import { lazy, } from "react";
+import { lazy } from "react";
 import ListPageWrapper from "./LazyLoadSkeleton/ListPageWrapper";
+import ProfilePageWrapper from "./LazyLoadSkeleton/profilePageWrapper";
+import NotFound from "./routes/NotFound/NotFound";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <HomeLayout />,
     errorElement: <ErrorPage />,
+  },
+  {
+    path:"*",
+    element:<NotFound/>,
+    errorElement:<ErrorPage/>
   },
   {
     path: "/",
@@ -35,7 +42,7 @@ const router = createBrowserRouter([
       {
         path: "list",
         element: <ListPageWrapper />,
-        loader: listpageloader,
+        loader: listPageLoader,
       },
       {
         path: "singlepage/:id",
@@ -56,7 +63,8 @@ const router = createBrowserRouter([
         children: [
           {
             path: "profile",
-            element: <ProfilePage />,
+            element: <ProfilePageWrapper />,
+            loader: profilepageLoader,
           },
           {
             path: "profile/update",

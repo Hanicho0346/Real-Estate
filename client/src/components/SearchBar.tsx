@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 const types = ["Buy", "Rent"];
 
 const SearchBar = () => {
-  const [query, setquery] = useState({
+  const [query, setQuery] = useState({
     type: "Buy",
     location: "",
     minPrice: 0,
@@ -13,12 +13,12 @@ const SearchBar = () => {
   });
 
   const switchType = (val) => {
-    setquery((prev) => ({ ...prev, type: val }));
+    setQuery((prev) => ({ ...prev, type: val }));
   };
-  const handleonChange = (e) => {
-    setquery((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
+  const handleChange = (e) => {
+    setQuery((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
-  const handleSubmit = () => {};
 
   return (
     <div className="max-w-5xl mx-auto p-4">
@@ -38,12 +38,8 @@ const SearchBar = () => {
         ))}
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col bg-white rounded-lg border border-gray-300 shadow-md overflow-hidden"
-      >
+      <form className="flex flex-col bg-white rounded-lg border border-gray-300 shadow-md overflow-hidden">
         <div className="flex flex-col sm:flex-row w-full gap-2 p-2">
-          {/* Location Input */}
           <div className="relative flex-grow">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg
@@ -69,7 +65,9 @@ const SearchBar = () => {
             </div>
             <input
               type="search"
-              onChange={handleonChange}
+              name="location"
+              onChange={handleChange}
+              value={query.location}
               placeholder="City location"
               aria-label="City location"
               className="w-full px-4 py-3 pl-10 text-gray-800 border border-gray-300 placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -84,8 +82,9 @@ const SearchBar = () => {
               </div>
               <input
                 type="number"
-                name="min"
-                onChange={handleonChange}
+                name="minPrice"
+                onChange={handleChange}
+                value={query.minPrice}
                 min={0}
                 max={1000000}
                 placeholder="Min price"
@@ -99,8 +98,9 @@ const SearchBar = () => {
               </div>
               <input
                 type="number"
-                name="max"
-                onChange={handleonChange}
+                name="maxPrice"
+                onChange={handleChange}
+                value={query.maxPrice}
                 min={0}
                 max={1000000}
                 placeholder="Max price"
@@ -109,9 +109,12 @@ const SearchBar = () => {
             </div>
           </div>
 
-          <Link to={`/list?type=${query.type}&city=${query.location}$minprice=${query.minPrice}$maxprice=${query.maxPrice}`}>
+          <Link 
+            to={`/list?type=${query.type}&city=${query.location}&minPrice=${query.minPrice}&maxPrice=${query.maxPrice}`}
+            className="w-full sm:w-auto flex-shrink-0"
+          >
             <button
-              className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-2 px-6 py-3 text-white bg-green-600 rounded-lg font-medium hover:bg-green-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 text-white bg-green-600 rounded-lg font-medium hover:bg-green-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
               aria-label="Search"
               type="submit"
             >

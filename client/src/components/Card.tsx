@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
-import image from "../assets/Architectural White Townhouse _ Sleek Urban Elegance 🌟🏘️.jpg";
 import { BiBookmark } from "react-icons/bi";
 import {  FaLocationDot, } from "react-icons/fa6";
 import { FaBath, FaBed } from "react-icons/fa";
 import { GrContact } from "react-icons/gr";
 
+  const API_URL = "http://localhost:8800";
 const Card = ({ item }) => {
   return (
     <div className="bg-white mb-6 border-gray-100 overflow-hidden transition-transform duration-300 hover:scale-[1.01] hover:shadow-md">
@@ -12,28 +12,31 @@ const Card = ({ item }) => {
         <div className="w-full  md:w-75 h-40 md:h-50">
           <img
             className="w-full rounded-lg h-full object-cover"
-            src={image}
-            alt={item.title || "Property image"}
+            src={`${API_URL}${item.images[0]}`}
+            alt={item.title }
           />
         </div>
 
         <div className="p-4 flex-1 flex flex-col">
           <div className="flex-1">
             <h3 className="text-xl font-bold text-gray-900 mb-1 line-clamp-1">
-              {item.title || "Property Title"}
+              {item.title }
             </h3>
             <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-              {item.description || "No description available"}
+              {item.description }
             </p>
             <div className="text-xl text-gray-500 mb-3 flex gap-2 flex-row ">
               <span className="justify-center align-middle mt-2">
                 <FaLocationDot />
               </span>
-              <p> {item.location || "Location not specified"}</p>
+              <div className="flex flex-row gap-2">
+              <p> {item.address},</p> 
+              <p>{item.city}</p>
+              </div>
             </div>
             <p>
               <span className="text-2xl font-semibold text-green-600">
-                {item.price?.toLocaleString() || "N/A"}
+                {item.price?.toLocaleString()}
               </span>
             </p>
           </div>
@@ -43,7 +46,7 @@ const Card = ({ item }) => {
               <div className="flex items-center  text-black">
                 <FaBed />
                 <span className="text-sm  ml-1">
-                  {item.bedroom || "N/A"}
+                  {item.bedroom }
                 </span>
                 <span className="text-sm  ml-1 font-medium ">
                   BedRoom:
@@ -52,7 +55,7 @@ const Card = ({ item }) => {
               <div className="flex items-center  text-balck">
                 <FaBath />
                 <span className="text-sm ml-1">
-                  {item.bathroom || "N/A"}
+                  {item.bathroom}
                 </span>
                 <span className="text-sm font-medium ">
                   BathRoom:

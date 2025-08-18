@@ -1,0 +1,26 @@
+{
+  "name": "socket",
+  "version": "1.0.0",
+  "main": "socket.ts",
+  "type": "module",
+  "scripts": {
+    "start": "ts-node socket.ts",
+    "dev": "ts-node --watch socket.ts",
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4",
+    "@types/express": "^5.1.1",
+    "@types/node": "^20.5.7"
+  }
+}

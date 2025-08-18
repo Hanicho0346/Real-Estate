@@ -1,30 +1,6 @@
 import { useEffect, useState, createContext, type ReactNode } from "react";
-type User = {
-  id: string;
-  username: string;
-  email: string;
-  avatar: string | null;
-} | null; 
+import type { AuthContextType, AuthContextProviderProps, AuthResponseSuccess, Users } from "../types/type";
 
-type AuthResponseSuccess = {
-  message?: string; 
-  token: string;    
-  user: {          
-    id: string;
-    username: string;
-    email: string;
-    avatar: string | null;
-
-  };
-};
-
-
-type AuthContextType = {
-  currentUser: User;
-  updateUser: (data: AuthResponseSuccess | User | null) => void;
-  Logout: () => void;
-  authToken: string | null; 
-};
 
 export const AuthContext = createContext<AuthContextType>({
   currentUser: null,
@@ -34,14 +10,9 @@ export const AuthContext = createContext<AuthContextType>({
 });
 
 
-type AuthContextProviderProps = {
-  children: ReactNode;
-};
-
-
 export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
  
-  const [currentUser, setCurrentUser] = useState<User>(null);
+  const [currentUser, setCurrentUser] = useState<Users>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
 
   
@@ -52,7 +23,7 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
 
       if (storedUser) {
        
-        const parsedUser: User = JSON.parse(storedUser);
+        const parsedUser: Users = JSON.parse(storedUser);
         setCurrentUser(parsedUser);
       }
       if (storedToken) {
@@ -81,7 +52,7 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
   }, [currentUser]);
 
 
-  const updateUser = (data: AuthResponseSuccess | User | null) => {
+  const updateUser = (data: AuthResponseSuccess | Users | null) => {
   if (data === null) {
     setCurrentUser(null);
     localStorage.removeItem("user");

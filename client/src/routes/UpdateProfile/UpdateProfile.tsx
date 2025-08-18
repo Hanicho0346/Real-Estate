@@ -4,14 +4,7 @@ import { FaUser } from "react-icons/fa";
 import { AuthContext } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import apiRequest from "../../lib/apiRequest";
-import { jwtDecode } from "jwt-decode";
-
-interface FormData {
-  username: string;
-  email: string;
-  password: string;
-  rememberMe: boolean;
-}
+import type { User } from "../../types/type";
 
 const UpdateProfile = () => {
   const [error, setError] = useState("");
@@ -19,25 +12,16 @@ const UpdateProfile = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { currentUser, updateUser } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<User>({
+    id: currentUser?.id,
     username: currentUser?.username || "",
     email: currentUser?.email || "",
+    avatar: currentUser?.avatar || "",
     password: "",
     rememberMe: false,
   });
   const token = localStorage.getItem("token");
 
-  let decodedUserId: string | undefined;
-  if (token) {
-    try {
-      const decoded: any = jwtDecode(token);
-      decodedUserId = decoded.id;
-    } catch (e) {
-      console.error("Error decoding token:", e);
-    }
-  }
-
-  console.log("Decoded user ID from token:", decodedUserId);
   const contextId = currentUser?.id;
   console.log("userid (from context):", contextId);
 
@@ -53,37 +37,28 @@ const UpdateProfile = () => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
-    if (!decodedUserId) {
+    if (!currentUser?.id) {
       setError("User ID not found. Please log in again.");
       setIsLoading(false);
       return;
     }
 
-    const formElements = e.target as HTMLFormElement;
-    const username = (
-      formElements.elements.namedItem("username") as HTMLInputElement
-    )?.value;
-    const email = (formElements.elements.namedItem("email") as HTMLInputElement)
-      ?.value;
-    const password = (
-      formElements.elements.namedItem("password") as HTMLInputElement
-    )?.value;
-
     try {
-        const updateData: any = {
-      username: formData.username,
-      email: formData.email
-    };
-      const res = await apiRequest.put(
-        `/user/${decodedUserId}`,
-        updateData, 
-      {
+      const updateData: any = {
+        username: formData.username,
+        email: formData.email,
+        avatar: formData.avatar,
+      };
+      const res = await apiRequest.put(`/user/${currentUser?.id}`, updateData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
-      );
-      updateUser(res.data);
+      });
+      console.log("token", token);
+      updateUser({
+        ...res.data,
+        id: res.data.id || formData.id,
+      });
       navigate("/profile");
     } catch (err: any) {
       console.error("Update error:", err);
