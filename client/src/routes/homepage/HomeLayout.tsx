@@ -1,6 +1,6 @@
 import Homepage from './HomePage';
 import NavBar from '../../components/NavBar';
-import FeatureList from './FeatureList';
+// import RecommendedList from './FeatureList';
 
 const HomeLayout = () => {
   return (
@@ -23,10 +23,10 @@ const HomeLayout = () => {
           </div>
         </div>
       </div>
-      
+{/*       
       <div className="bg-gradient-to-b from-gray-50 to-white py-20">
-        <FeatureList />
-      </div>
+        <RecommendedList />
+      </div> */}
     </div>
   );
 };

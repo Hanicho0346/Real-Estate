@@ -6,8 +6,34 @@ require("dotenv").config();
 const register = async (req, res) => {
   try {
     const { username, email, password, avatar = "" } = req.body;
-    if (!username || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+
+    const errors = {};
+    if (!username) errors.username = "Username is required";
+    if (!email) errors.email = "Email is required";
+    if (!password) errors.password = "Password is required";
+    
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({ 
+        message: "Validation failed",
+        errors 
+      });
+    }
+
+    if (username.length < 3) {
+      errors.username = "Username must be at least 3 characters";
+    }
+    if (password.length < 6) {
+      errors.password = "Password must be at least 6 characters";
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = "Invalid email format";
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      return res.status(400).json({ 
+        message: "Validation failed",
+        errors 
+      });
     }
 
     const hashpassword = await bcrypt.hash(password, 10);
@@ -29,23 +55,30 @@ const register = async (req, res) => {
     });
   } catch (error) {
     console.error("Registration error:", error);
-
     if (error.code === "P2002") {
       const target = error.meta?.target;
-      let message = "Registration failed";
-
+      const errors = {};
+      
       if (target.includes("username")) {
-        message = "Username already exists";
-      } else if (target.includes("email")) {
-        message = "Email already exists";
+        errors.username = "Username already exists";
+      }
+      if (target.includes("email")) {
+        errors.email = "Email already exists";
       }
 
-      return res.status(400).json({ message });
+      return res.status(400).json({ 
+        message: "Registration failed",
+        errors 
+      });
     }
 
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ 
+      message: "Internal server error",
+      error: error.message 
+    });
   }
 };
+
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -68,14 +101,18 @@ const login = async (req, res) => {
         username: true,
         password: true,
         email: true,
-        avatar: true
+        avatar: true,
+        isAdmin: true
       }
     });
 
     if (!user) {
       return res.status(401).json({ 
         message: "Invalid credentials",
-        errors: { username: "Username not found" } 
+        errors: { 
+          username: "Username not found",
+          password: "Incorrect password" 
+        } 
       });
     }
 
@@ -87,7 +124,7 @@ const login = async (req, res) => {
       });
     }
 
-    const tokenAge = 24 * 60 * 60 * 1000;
+    const tokenAge = 24 * 60 * 60 * 1000; // 24 hours
 
     if (!process.env.JWT_KEY_TOKEN) {
       throw new Error("JWT secret key is not configured");
@@ -96,7 +133,7 @@ const login = async (req, res) => {
     const token = jwt.sign(
       {
         id: user.id,
-        isAdmin: false,
+        isAdmin: user.isAdmin,
       },
       process.env.JWT_KEY_TOKEN,
       { expiresIn: tokenAge }
@@ -109,7 +146,7 @@ const login = async (req, res) => {
         httpOnly: true,
         maxAge: tokenAge, 
         sameSite: "none",
-        secure: false
+        secure: process.env.NODE_ENV === "production"
       })
       .status(200) 
       .json({
@@ -130,7 +167,7 @@ const logout = (req, res) => {
   res
     .clearCookie("token", {
       sameSite: "none",
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
     })
     .status(200)
     .json({ message: "Logout successful" });

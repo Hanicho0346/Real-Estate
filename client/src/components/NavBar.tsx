@@ -2,17 +2,20 @@ import { useState, useEffect, useContext, useMemo } from "react";
 import { FiMenu, FiX, FiBell } from "react-icons/fi";
 import { Link, useFetcher } from "react-router-dom";
 import defaultAvatar from "../assets/360_F_299042079_vGBD7wIlSeNl7vOevWHiL93G4koMM967.jpg";
-import  {AuthContext}  from "../context/AuthContext.js";
+import { AuthContext } from "../context/AuthContext.js";
 
 const NavBar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [hasNotifications, setHasNotifications] = useState(true); 
-  const { currentUser,updateUser } = useContext(AuthContext);
-
-
-  const toggleMobileMenu = useMemo(() => () => {
-    setIsMobileMenuOpen(prev => !prev);
-  }, []);
+  const [hasNotifications, setHasNotifications] = useState(true);
+  const { currentUser, updateUser } = useContext(AuthContext);
+const firstLetter = currentUser?.username?.charAt(0);
+console.log("firstLetter of the user",firstLetter);
+  const toggleMobileMenu = useMemo(
+    () => () => {
+      setIsMobileMenuOpen((prev) => !prev);
+    },
+    []
+  );
 
   useEffect(() => {
     document.body.style.overflow = isMobileMenuOpen ? "hidden" : "auto";
@@ -21,13 +24,12 @@ const NavBar = () => {
     };
   }, [isMobileMenuOpen]);
 
-  useEffect(()=>{
-    updateUser(currentUser)
-  },[currentUser])
- 
+  useEffect(() => {
+    updateUser(currentUser);
+  }, [currentUser]);
 
-  const userAvatar = currentUser?.avatar || defaultAvatar;
-  const userName = currentUser?.username || "User";
+  const userAvatar = currentUser?.avatar || firstLetter;
+  const userName = currentUser?.username || firstLetter;
 
   return (
     <>
@@ -37,21 +39,35 @@ const NavBar = () => {
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-green-900 font-bold text-xl">
               B
             </div>
-            <span className="text-xl font-bold text-white">BrookRealEstate</span>
+            <span className="text-xl font-bold text-white">
+              BrookRealEstate
+            </span>
           </Link>
         </div>
 
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/" className="text-white font-medium hover:text-green-200 transition-colors">
+          <Link
+            to="/"
+            className="text-white font-medium hover:text-green-200 transition-colors"
+          >
             Home
           </Link>
-          <Link to="/about" className="text-white font-medium hover:text-green-200 transition-colors">
+          <Link
+            to="/about"
+            className="text-white font-medium hover:text-green-200 transition-colors"
+          >
             About
           </Link>
-          <Link to="/agents" className="text-white font-medium hover:text-green-200 transition-colors">
+          <Link
+            to="/agents"
+            className="text-white font-medium hover:text-green-200 transition-colors"
+          >
             Agents
           </Link>
-          <Link to="/contact" className="text-white font-medium hover:text-green-200 transition-colors">
+          <Link
+            to="/contact"
+            className="text-white font-medium hover:text-green-200 transition-colors"
+          >
             Contact
           </Link>
         </div>
@@ -66,27 +82,26 @@ const NavBar = () => {
                   <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full"></span>
                 )}
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="rounded-full w-10 h-10 overflow-hidden border-2 border-white shadow-md">
-                    <img
-                      src={userAvatar}
-                      alt="User avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                  <Link to="/profile">
+                    <div className="rounded-full w-10 h-10 overflow-hidden border-2 border-white shadow-md">
+                      <img
+                        src={userAvatar}
+                        alt={firstLetter}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    <span className="text-white hover:underline flex flex-col">
+                      {userName}
+                    </span>
+                  </Link>
                   {hasNotifications && (
                     <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full"></span>
                   )}
                 </div>
-                <Link
-                  to="/profile"
-                  className="text-white hover:underline flex flex-col"
-                >
-                  <span>{userName}</span>
-                  <span className="text-sm text-green-200">View Profile</span>
-                </Link>
               </div>
             </div>
           ) : (
@@ -116,7 +131,6 @@ const NavBar = () => {
         </button>
       </nav>
 
-
       <div
         className={`fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300 ${
           isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -131,8 +145,8 @@ const NavBar = () => {
       >
         <div className="flex flex-col h-full p-6">
           <div className="flex justify-end mb-8">
-            <button 
-              onClick={toggleMobileMenu} 
+            <button
+              onClick={toggleMobileMenu}
               className="text-gray-700"
               aria-label="Close menu"
             >

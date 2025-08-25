@@ -1,23 +1,39 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  useNavigate,
+} from "react-router-dom";
 import FeatureList from "./routes/homepage/FeatureList";
 import { LayoutPage, RequireAuth } from "./routes/layout/LayoutPage";
 import Login from "./routes/Login/Login";
 import HomeLayout from "./routes/homepage/HomeLayout";
-import ListPage from "./routes/ListPage/ListPage";
 import SinglePage from "./routes/singlepage/SinglePage";
 import ProfilePage from "./routes/Profile/ProfilePage";
 import SignUp from "./routes/signup/SignUp";
-import { Children } from "react";
 import UpdateProfile from "./routes/UpdateProfile/UpdateProfile";
 import AddPost from "./routes/post/AddPost";
+import { singleloader, listPageLoader, profilepageLoader } from "./lib/loader";
+import ErrorPage from "./routes/ErrorPage";
+import { lazy } from "react";
+import ListPageWrapper from "./LazyLoadSkeleton/ListPageWrapper";
+import ProfilePageWrapper from "./LazyLoadSkeleton/profilePageWrapper";
+import NotFound from "./routes/NotFound/NotFound";
 
-const routes = [
+const router = createBrowserRouter([
   {
     path: "/",
     element: <HomeLayout />,
+    errorElement: <ErrorPage />,
   },
   {
+    path:"*",
+    element:<NotFound/>,
+    errorElement:<ErrorPage/>
+  },
+  {
+    path: "/",
     element: <LayoutPage />,
+    errorElement: <ErrorPage />,
     children: [
       {
         path: "features",
@@ -25,11 +41,14 @@ const routes = [
       },
       {
         path: "list",
-        element: <ListPage />,
+        element: <ListPageWrapper />,
+        loader: listPageLoader,
       },
       {
-        path: "singlepage",
+        path: "singlepage/:id",
         element: <SinglePage />,
+        loader: singleloader,
+        errorElement: <ErrorPage />,
       },
       {
         path: "login",
@@ -40,46 +59,29 @@ const routes = [
         element: <SignUp />,
       },
       {
-        element: <RequireAuth />, 
+        element: <RequireAuth />,
         children: [
           {
             path: "profile",
-            element: <ProfilePage />,
+            element: <ProfilePageWrapper />,
+            loader: profilepageLoader,
           },
           {
             path: "profile/update",
             element: <UpdateProfile />,
           },
           {
-            path:"profile/addpost",
-            element:<AddPost/>
-          }
+            path: "profile/addpost",
+            element: <AddPost />,
+          },
         ],
-
       },
     ],
   },
-];
-
-function renderRoutes(routes) {
-  return routes.map((route, index) => {
-    if (route.children) {
-      return (
-        <Route key={index} path={route.path} element={route.element}>
-          {renderRoutes(route.children)}
-        </Route>
-      );
-    }
-    return <Route key={index} path={route.path} element={route.element} />;
-  });
-}
+]);
 
 function App() {
-  return (
-    <Router>
-      <Routes>{renderRoutes(routes)}</Routes>
-    </Router>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;

@@ -1,14 +1,16 @@
 import { Bed, Bath, MapPin, Heart } from "lucide-react";
+import { Link,} from "react-router-dom";
 
 interface CardProps {
   item: {
     id: number;
     title: string;
-    img: string;
+    image: string;
     bedroom: number;
     bathroom: number;
     price: number;
     address: string;
+    city:string;
   };
 }
 
@@ -17,7 +19,7 @@ const Card = ({ item }: CardProps) => {
     <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 group border border-gray-100">
       <div className="relative overflow-hidden">
         <img
-          src={item.img}
+          src={item.image}
           alt={item.title}
           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
         />
@@ -34,7 +36,7 @@ const Card = ({ item }: CardProps) => {
         
         <div className="flex items-center gap-2 text-gray-600 mb-4">
           <MapPin className="w-4 h-4" />
-          <span className="text-sm">{item.address}</span>
+          <span className="text-sm">{item.address},{item.city}</span>
         </div>
         
         <div className="flex items-center justify-between">
@@ -49,9 +51,9 @@ const Card = ({ item }: CardProps) => {
             </div>
           </div>
           
-          <button className="text-green-600 hover:text-green-700 font-medium text-sm hover:underline transition-colors">
+          <Link to={`/singlepage/${item.id}`}  className="text-green-600 hover:text-green-700 font-medium text-sm hover:underline transition-colors">
             View Details
-          </button>
+          </Link>
         </div>
       </div>
     </div>
